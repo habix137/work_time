@@ -257,4 +257,22 @@ def delete_task(company, task_id):
 
 # ───────────────────────────────
 if __name__ == '__main__':
+    @app.route('/delete_goal/<company>')
+    def delete_goal(company):
+        data = load_data()
+        if company in data:
+            # Remove goal-related fields but keep logs and tasks
+            data[company].pop('goal', None)
+            data[company].pop('workdays_count', None)
+            data[company].pop('deadline', None)
+            
+            # If no logs or tasks left, remove the company completely
+            if not (data[company]['log'] or data[company]['tasks']):
+                data.pop(company)
+                
+            save_data(data)
+            flash(f'Goal deleted for {company}', 'success')
+        else:
+            flash('Company not found', 'error')
+        return redirect(url_for('index'))
     app.run(debug=True)
