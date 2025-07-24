@@ -32,10 +32,11 @@ def get_today_persian():
     return jdatetime.date.today().isoformat()
 
 
-def get_remaining_workdays(deadline_date, workdays):
+def get_remaining_workdays(deadline_date, workdays_count):
     """
-    Count available workdays (in Persian week names) between today and deadline.
-    `workdays` is a list such as ['shanbe', 'doshanbe', ...]; empty → every day.
+    Calculate available days between today and deadline, considering how many days
+    per week you want to work.
+    `workdays_count` is the number of days you want to work per week (0-7).
     """
     today = jdatetime.date.today()
 
@@ -50,17 +51,22 @@ def get_remaining_workdays(deadline_date, workdays):
     if deadline < today:
         return 0
 
-    persian_weekdays = ['shanbe', 'yekshanbe', 'doshanbe',
-                        'seshanbe', 'chaharshanbe', 'panjshanbe', 'jome']
+    # If workdays_count is 0 or 7, count all days
+    if workdays_count in (0, 7):
+        return (deadline - today).days + 1
 
-    days = 0
-    current = today
-    while current <= deadline:
-        weekday_name = persian_weekdays[current.togregorian().weekday()]
-        if not workdays or weekday_name in workdays:
-            days += 1
-        current += jdatetime.timedelta(days=1)
-    return days
+    # Calculate workdays based on number of days per week
+    total_days = (deadline - today).days + 1
+    full_weeks = total_days // 7
+    remaining_days = total_days % 7
+    
+    total_workdays = full_weeks * workdays_count
+    
+    # Add remaining days in the partial week
+    if remaining_days > 0:
+        total_workdays += min(remaining_days, workdays_count)
+    
+    return total_workdays
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -76,7 +82,7 @@ def index():
 
         # Defaults
         company.setdefault('tasks', [])
-        company.setdefault('workdays', [])
+        company.setdefault('workdays_count', 7)  # Default to working every day
         company.setdefault('deadline', '')
 
         # ─ Calculate totals ─
@@ -92,7 +98,7 @@ def index():
         company['progress'] = round((total_hours / company['goal']) * 100, 1) if company['goal'] else 0.0
 
         # ─ Recommended daily hours ─
-        remaining_days = get_remaining_workdays(company['deadline'], company['workdays'])
+        remaining_days = get_remaining_workdays(company['deadline'], company.get('workdays_count', 7))
         company['remaining_days'] = remaining_days
         if remaining_days:
             company['recommended_hours'] = round(company['remaining_hours'] / remaining_days, 1)
@@ -121,7 +127,7 @@ def log_work():
         flash('Hours must be a positive number', 'error')
         return redirect(url_for('index'))
 
-    data.setdefault(company, {'goal': 0, 'log': {}, 'tasks': [], 'workdays': []})
+    data.setdefault(company, {'goal': 0, 'log': {}, 'tasks': [], 'workdays_count': 7})
 
     # Merge if same date already exists
     if date in data[company]['log'] and isinstance(data[company]['log'][date], dict):
@@ -143,7 +149,15 @@ def log_work():
 def set_goal():
     data = load_data()
     company = request.form['company'].strip()
-    workdays = request.form.getlist('workdays')
+    
+    try:
+        workdays_count = int(request.form.get('workdays_count', 7))
+        if workdays_count < 0 or workdays_count > 7:
+            raise ValueError
+    except ValueError:
+        flash('Workdays per week must be between 0 and 7', 'error')
+        return redirect(url_for('index'))
+
     deadline = request.form.get('deadline') or ''
 
     try:
@@ -155,11 +169,15 @@ def set_goal():
         return redirect(url_for('index'))
 
     data.setdefault(company, {'log': {}, 'tasks': []})
-    data[company].update({'goal': goal, 'workdays': workdays, 'deadline': deadline})
+    data[company].update({
+        'goal': goal, 
+        'workdays_count': workdays_count, 
+        'deadline': deadline
+    })
 
     save_data(data)
-    days = ', '.join(workdays) if workdays else 'all days'
-    flash(f'Set {goal} h goal for {company} (workdays: {days})', 'success')
+    days_desc = f"{workdays_count} days/week" if 0 < workdays_count < 7 else ("all days" if workdays_count == 7 else "no days")
+    flash(f'Set {goal} h goal for {company} (work schedule: {days_desc})', 'success')
     return redirect(url_for('index'))
 
 
@@ -194,14 +212,14 @@ def add_task():
         flash('Company and task title are required', 'error')
         return redirect(url_for('index'))
 
-    data.setdefault(company, {'goal': 0, 'log': {}, 'tasks': [], 'workdays': []})
+    data.setdefault(company, {'goal': 0, 'log': {}, 'tasks': [], 'workdays_count': 7})
 
     task_ids = [int(t['id']) for c in data.values() for t in c.get('tasks', [])]
     task_id = str(max(task_ids) + 1 if task_ids else 1)
     data[company]['tasks'].append({'id': task_id, 'title': title, 'date': date, 'completed': False})
 
     save_data(data)
-    flash(f'Added task “{title}” for {company}', 'success')
+    flash(f'Added task "{title}" for {company}', 'success')
     return redirect(url_for('index'))
 
 
