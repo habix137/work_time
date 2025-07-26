@@ -38,6 +38,7 @@
         <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#work-log">Work Log</a></li>
         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#set-goal">Set Goal</a></li>
         <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#todo">To-Do List</a></li>
+        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#day-time">Day Time</a></li>
     </ul>
 
     <div class="tab-content">
@@ -233,6 +234,61 @@
             {% endfor %}
         </div></div>
     </div>
+    <!-- ───────────────────────  Day Time tab  ─────────────────────── -->
+    <div class="tab-pane fade" id="day-time">
+        <div class="card"><div class="card-body">
+            <h2 class="card-title">Work Time Tracker</h2>
+            
+            <div class="mb-4">
+                <h3>Current Session</h3>
+                <div class="d-flex gap-3 mb-3">
+                    <button id="start-btn" class="btn btn-primary">Start Work</button>
+                    <button id="end-btn" class="btn btn-danger" disabled>End Work</button>
+                    <button id="calculate-btn" class="btn btn-success" disabled>Calculate Total</button>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Company</label>
+                    <select id="company-select" class="form-select">
+                        <option value="" selected disabled>Select a company</option>
+                        {% for company in data.keys() %}
+                        <option value="{{ company }}">{{ company }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div id="session-info" class="alert alert-info" style="display:none"></div>
+            </div>
+            
+            <div class="mb-4">
+                <h3>Today's Work Sessions</h3>
+                <ul id="today-sessions" class="list-group mb-3"></ul>
+                <div id="today-total" class="alert alert-success" style="display:none"></div>
+            </div>
+            
+            <div>
+                <h3>All Time Logs</h3>
+                <div id="time-logs" class="list-group">
+                    {% for company, info in data.items() if info.time_logs %}
+                        <div class="list-group-item">
+                            <h4>{{ company }}</h4>
+                            <ul class="list-group">
+                                {% for log in info.time_logs %}
+                                <li class="list-group-item d-flex justify-content-between">
+                                    <span>{{ log.date }}: {{ log.start_time }} - {{ log.end_time }} ({{ log.duration }} hours)</span>
+                                    <a href="#" class="btn btn-sm btn-danger delete-time-log" 
+                                    data-company="{{ company }}" 
+                                    data-date="{{ log.date }}" 
+                                    data-start="{{ log.start_time }}">Delete</a>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    {% else %}
+                        <p>No time logs recorded yet.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div></div>
+    </div>
     </div><!-- /tab-content -->
 </div><!-- /container -->
 
@@ -299,6 +355,146 @@ document.addEventListener('DOMContentLoaded', () => {
     })();
     {% endif %}
     {% endfor %}
+});
+// Time Tracking Functionality
+document.addEventListener('DOMContentLoaded', () => {
+    const startBtn = document.getElementById('start-btn');
+    const endBtn = document.getElementById('end-btn');
+    const calculateBtn = document.getElementById('calculate-btn');
+    const companySelect = document.getElementById('company-select');
+    const sessionInfo = document.getElementById('session-info');
+    const todaySessions = document.getElementById('today-sessions');
+    const todayTotal = document.getElementById('today-total');
+    
+    let currentSession = null;
+    
+    // Load today's sessions
+    function loadTodaySessions() {
+        fetch('/get_today_time_logs')
+            .then(res => res.json())
+            .then(data => {
+                todaySessions.innerHTML = '';
+                let totalHours = 0;
+                
+                if (data.logs && Object.keys(data.logs).length > 0) {
+                    for (const [company, logs] of Object.entries(data.logs)) {
+                        logs.forEach(log => {
+                            const li = document.createElement('li');
+                            li.className = 'list-group-item';
+                            li.innerHTML = `
+                                <strong>${company}</strong>: ${log.start_time} - ${log.end_time} 
+                                (${log.duration} hours)
+                            `;
+                            todaySessions.appendChild(li);
+                            totalHours += parseFloat(log.duration);
+                        });
+                    }
+                    
+                    todayTotal.style.display = 'block';
+                    todayTotal.textContent = `Total today: ${totalHours.toFixed(2)} hours`;
+                } else {
+                    todaySessions.innerHTML = '<li class="list-group-item">No sessions today</li>';
+                    todayTotal.style.display = 'none';
+                }
+            });
+    }
+    
+    // Handle delete time log
+    document.querySelectorAll('.delete-time-log').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (confirm('Delete this time log?')) {
+                const company = this.dataset.company;
+                const date = this.dataset.date;
+                const startTime = this.dataset.start;
+                
+                fetch('/delete_time_log', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `company=${encodeURIComponent(company)}&date=${encodeURIComponent(date)}&start_time=${encodeURIComponent(startTime)}`
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        this.closest('li').remove();
+                        loadTodaySessions();
+                    }
+                });
+            }
+        });
+    });
+    
+    // Start work session
+    startBtn.addEventListener('click', () => {
+        const company = companySelect.value;
+        if (!company) {
+            alert('Please select a company');
+            return;
+        }
+        
+        fetch('/start_time_log', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `company=${encodeURIComponent(company)}`
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                currentSession = {
+                    company: company,
+                    startTime: new Date(data.start_time)
+                };
+                
+                startBtn.disabled = true;
+                endBtn.disabled = false;
+                calculateBtn.disabled = false;
+                companySelect.disabled = true;
+                
+                sessionInfo.style.display = 'block';
+                sessionInfo.textContent = `Session started at ${currentSession.startTime.toLocaleTimeString()}`;
+            }
+        });
+    });
+    
+    // End work session
+    endBtn.addEventListener('click', () => {
+        const company = companySelect.value;
+        
+        fetch('/end_time_log', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `company=${encodeURIComponent(company)}`
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                startBtn.disabled = false;
+                endBtn.disabled = true;
+                calculateBtn.disabled = true;
+                companySelect.disabled = false;
+                
+                sessionInfo.style.display = 'block';
+                sessionInfo.textContent = `Session ended. Duration: ${data.duration} hours`;
+                
+                currentSession = null;
+                loadTodaySessions();
+            }
+        });
+    });
+    
+    // Calculate total time
+    calculateBtn.addEventListener('click', () => {
+        loadTodaySessions();
+    });
+    
+    // Initial load
+    loadTodaySessions();
 });
 </script>
 </body>

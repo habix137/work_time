@@ -257,6 +257,83 @@ def delete_task(company, task_id):
 
 # ───────────────────────────────
 if __name__ == '__main__':
+    # ───────────────────────────────
+    #  Time Logging Endpoints
+    # ───────────────────────────────
+    @app.route('/start_time_log', methods=['POST'])
+    def start_time_log():
+        data = load_data()
+        company = request.form['company']
+        start_time = dt.now().isoformat()
+        
+        data.setdefault(company, {'goal': 0, 'log': {}, 'tasks': [], 'workdays_count': 7, 'time_logs': []})
+        data[company].setdefault('current_session', {})
+        
+        data[company]['current_session'] = {
+            'start_time': start_time,
+            'date': get_today_persian()
+        }
+        
+        save_data(data)
+        return {'status': 'success', 'start_time': start_time}
+
+    @app.route('/end_time_log', methods=['POST'])
+    def end_time_log():
+        data = load_data()
+        company = request.form['company']
+        
+        if 'current_session' not in data.get(company, {}):
+            return {'status': 'error', 'message': 'No active session'}, 400
+        
+        current_session = data[company]['current_session']
+        end_time = dt.now().isoformat()
+        start_dt = dt.fromisoformat(current_session['start_time'])
+        end_dt = dt.fromisoformat(end_time)
+        duration = round((end_dt - start_dt).total_seconds() / 3600, 2)
+        
+        time_log = {
+            'date': current_session['date'],
+            'start_time': start_dt.strftime('%H:%M:%S'),
+            'end_time': end_dt.strftime('%H:%M:%S'),
+            'duration': duration
+        }
+        
+        data[company].setdefault('time_logs', []).append(time_log)
+        data[company].pop('current_session', None)
+        
+        save_data(data)
+        return {'status': 'success', 'duration': duration, 'log': time_log}
+
+    @app.route('/get_today_time_logs', methods=['GET'])
+    def get_today_time_logs():
+        data = load_data()
+        today = get_today_persian()
+        result = {}
+        
+        for company, info in data.items():
+            if 'time_logs' in info:
+                today_logs = [log for log in info['time_logs'] if log['date'] == today]
+                if today_logs:
+                    result[company] = today_logs
+        
+        return {'status': 'success', 'logs': result}
+
+    @app.route('/delete_time_log', methods=['POST'])
+    def delete_time_log():
+        data = load_data()
+        company = request.form['company']
+        date = request.form['date']
+        start_time = request.form['start_time']
+        
+        if company in data and 'time_logs' in data[company]:
+            data[company]['time_logs'] = [
+                log for log in data[company]['time_logs'] 
+                if not (log['date'] == date and log['start_time'] == start_time)
+            ]
+            save_data(data)
+            return {'status': 'success'}
+        
+        return {'status': 'error', 'message': 'Log not found'}, 404
     @app.route('/delete_goal/<company>')
     def delete_goal(company):
         data = load_data()
