@@ -8,11 +8,11 @@
     <link href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body{padding:20px;background:#f8f9fa}
-        .card{margin-bottom:20px}
-        .progress{height:20px}
-        .alert-dismissible{position:fixed;top:20px;right:20px;z-index:1000}
-        .nav-tabs{margin-bottom:20px}
+        body { padding: 20px; background: #f8f9fa; }
+        .card { margin-bottom: 20px; }
+        .progress { height: 20px; }
+        .alert-dismissible { position: fixed; top: 20px; right: 20px; z-index: 1000; }
+        .nav-tabs { margin-bottom: 20px; }
         .chart-container {
             position: relative;
             height: 300px;
@@ -42,7 +42,7 @@
     </ul>
 
     <div class="tab-content">
-    <!-- ───────────────────────  Work-Log tab  ─────────────────────── -->
+    <!-- Work-Log tab -->
     <div class="tab-pane fade show active" id="work-log">
         <div class="card mb-4"><div class="card-body">
             <h2 class="card-title">Today</h2>
@@ -133,7 +133,7 @@
         {% endfor %}
     </div>
 
-    <!-- ───────────────────────  Set Goal tab  ─────────────────────── -->
+    <!-- Set Goal tab -->
     <div class="tab-pane fade" id="set-goal">
         <div class="card"><div class="card-body">
             <h2 class="card-title">Set Work Goal</h2>
@@ -172,8 +172,8 @@
                             {% endif %}
                         </div>
                         <a class="btn btn-danger btn-sm" 
-                        href="{{ url_for('delete_goal', company=company) }}"
-                        onclick="return confirm('Are you sure you want to delete the goal for {{ company }}? This will not delete logged hours.')">
+                           href="{{ url_for('delete_goal', company=company) }}"
+                           onclick="return confirm('Are you sure you want to delete the goal for {{ company }}? This will not delete logged hours.')">
                             Delete Goal
                         </a>
                     </div>
@@ -185,7 +185,7 @@
         </div></div>
     </div>
 
-    <!-- ───────────────────────  To-Do tab  ─────────────────────── -->
+    <!-- To-Do tab -->
     <div class="tab-pane fade" id="todo">
         <div class="card"><div class="card-body">
             <h2 class="card-title">To-Do List</h2>
@@ -234,7 +234,8 @@
             {% endfor %}
         </div></div>
     </div>
-    <!-- ───────────────────────  Day Time tab  ─────────────────────── -->
+
+    <!-- Day Time tab -->
     <div class="tab-pane fade" id="day-time">
         <div class="card"><div class="card-body">
             <h2 class="card-title">Work Time Tracker</h2>
@@ -259,6 +260,11 @@
             </div>
             
             <div class="mb-4">
+                <h3>Last Time Log</h3>
+                <div id="last-log-info" class="alert alert-info" style="display:none">Select a company to see the last time log</div>
+            </div>
+            
+            <div class="mb-4">
                 <h3>Today's Work Sessions</h3>
                 <ul id="today-sessions" class="list-group mb-3"></ul>
                 <div id="today-total" class="alert alert-success" style="display:none"></div>
@@ -275,9 +281,9 @@
                                 <li class="list-group-item d-flex justify-content-between">
                                     <span>{{ log.date }}: {{ log.start_time }} - {{ log.end_time }} ({{ log.duration }} hours)</span>
                                     <a href="#" class="btn btn-sm btn-danger delete-time-log" 
-                                    data-company="{{ company }}" 
-                                    data-date="{{ log.date }}" 
-                                    data-start="{{ log.start_time }}">Delete</a>
+                                       data-company="{{ company }}" 
+                                       data-date="{{ log.date }}" 
+                                       data-start="{{ log.start_time }}">Delete</a>
                                 </li>
                                 {% endfor %}
                             </ul>
@@ -298,11 +304,11 @@
 document.addEventListener('DOMContentLoaded', () => {
     flatpickr('.flatpickr', {dateFormat: 'Y-m-d', defaultDate: '{{ today_persian }}'});
     function updateTime(){
-        const n=new Date();
+        const n = new Date();
         document.getElementById('current-time').textContent =
-            n.toLocaleTimeString('fa-IR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+            n.toLocaleTimeString('fa-IR', {hour: '2-digit', minute: '2-digit', second: '2-digit'});
     }
-    updateTime(); setInterval(updateTime,1000);
+    updateTime(); setInterval(updateTime, 1000);
 
     // Initialize charts for each company
     {% for company, info in data.items() %}
@@ -311,15 +317,11 @@ document.addEventListener('DOMContentLoaded', () => {
         var ctx = document.getElementById('chart-{{ loop.index }}').getContext('2d');
         var dates = [];
         var hours = [];
-        
-        // Sort logs by date
         var sortedLogs = Object.entries({{ info.log|tojson }}).sort((a, b) => a[0].localeCompare(b[0]));
-        
         sortedLogs.forEach(function(log) {
             dates.push(log[0]);
             hours.push(typeof log[1] === 'object' ? log[1].hours : log[1]);
         });
-
         new Chart(ctx, {
             type: 'bar',
             data: {
@@ -336,28 +338,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 responsive: true,
                 maintainAspectRatio: false,
                 scales: {
-                    y: {
-                        beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: 'Hours Worked'
-                        }
-                    },
-                    x: {
-                        title: {
-                            display: true,
-                            text: 'Date'
-                        }
-                    }
+                    y: { beginAtZero: true, title: { display: true, text: 'Hours Worked' } },
+                    x: { title: { display: true, text: 'Date' } }
                 }
             }
         });
     })();
     {% endif %}
     {% endfor %}
-});
-// Time Tracking Functionality
-document.addEventListener('DOMContentLoaded', () => {
+
+    // Time Tracking Functionality
     const startBtn = document.getElementById('start-btn');
     const endBtn = document.getElementById('end-btn');
     const calculateBtn = document.getElementById('calculate-btn');
@@ -365,9 +355,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const sessionInfo = document.getElementById('session-info');
     const todaySessions = document.getElementById('today-sessions');
     const todayTotal = document.getElementById('today-total');
-    
+    const lastLogInfo = document.getElementById('last-log-info');
     let currentSession = null;
-    
+
     // Load today's sessions
     function loadTodaySessions() {
         fetch('/get_today_time_logs')
@@ -375,7 +365,6 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(data => {
                 todaySessions.innerHTML = '';
                 let totalHours = 0;
-                
                 if (data.logs && Object.keys(data.logs).length > 0) {
                     for (const [company, logs] of Object.entries(data.logs)) {
                         logs.forEach(log => {
@@ -389,7 +378,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             totalHours += parseFloat(log.duration);
                         });
                     }
-                    
                     todayTotal.style.display = 'block';
                     todayTotal.textContent = `Total today: ${totalHours.toFixed(2)} hours`;
                 } else {
@@ -398,7 +386,55 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
     }
-    
+
+    // Fetch and display the last time log for the selected company
+    function loadLastTimeLog(company) {
+        if (!company) {
+            lastLogInfo.style.display = 'none';
+            return;
+        }
+        fetch(`/get_last_time_log?company=${encodeURIComponent(company)}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    lastLogInfo.style.display = 'block';
+                    lastLogInfo.textContent = `Last log for ${company}: ${data.last_log.date} ${data.last_log.start_time} - ${data.last_log.end_time} (${data.last_log.duration} hours)`;
+                } else {
+                    lastLogInfo.style.display = 'block';
+                    lastLogInfo.textContent = `No time logs for ${company}`;
+                }
+            });
+    }
+
+    // Check for active session on page load
+    function checkCurrentSession() {
+        const company = companySelect.value;
+        if (!company) return;
+        fetch(`/get_current_session?company=${encodeURIComponent(company)}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    currentSession = {
+                        company: company,
+                        startTime: new Date(data.current_session.start_time)
+                    };
+                    startBtn.disabled = true;
+                    endBtn.disabled = false;
+                    calculateBtn.disabled = false;
+                    companySelect.disabled = true;
+                    sessionInfo.style.display = 'block';
+                    sessionInfo.textContent = `Session started at ${currentSession.startTime.toLocaleTimeString()}`;
+                } else {
+                    currentSession = null;
+                    startBtn.disabled = false;
+                    endBtn.disabled = true;
+                    calculateBtn.disabled = true;
+                    companySelect.disabled = false;
+                    sessionInfo.style.display = 'none';
+                }
+            });
+    }
+
     // Handle delete time log
     document.querySelectorAll('.delete-time-log').forEach(btn => {
         btn.addEventListener('click', function(e) {
@@ -407,12 +443,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const company = this.dataset.company;
                 const date = this.dataset.date;
                 const startTime = this.dataset.start;
-                
                 fetch('/delete_time_log', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: `company=${encodeURIComponent(company)}&date=${encodeURIComponent(date)}&start_time=${encodeURIComponent(startTime)}`
                 })
                 .then(res => res.json())
@@ -420,12 +453,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (data.status === 'success') {
                         this.closest('li').remove();
                         loadTodaySessions();
+                        loadLastTimeLog(companySelect.value);
                     }
                 });
             }
         });
     });
-    
+
     // Start work session
     startBtn.addEventListener('click', () => {
         const company = companySelect.value;
@@ -433,12 +467,9 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Please select a company');
             return;
         }
-        
         fetch('/start_time_log', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: `company=${encodeURIComponent(company)}`
         })
         .then(res => res.json())
@@ -448,27 +479,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     company: company,
                     startTime: new Date(data.start_time)
                 };
-                
                 startBtn.disabled = true;
                 endBtn.disabled = false;
                 calculateBtn.disabled = false;
                 companySelect.disabled = true;
-                
                 sessionInfo.style.display = 'block';
                 sessionInfo.textContent = `Session started at ${currentSession.startTime.toLocaleTimeString()}`;
             }
         });
     });
-    
+
     // End work session
     endBtn.addEventListener('click', () => {
         const company = companySelect.value;
-        
         fetch('/end_time_log', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: `company=${encodeURIComponent(company)}`
         })
         .then(res => res.json())
@@ -478,23 +504,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 endBtn.disabled = true;
                 calculateBtn.disabled = true;
                 companySelect.disabled = false;
-                
                 sessionInfo.style.display = 'block';
                 sessionInfo.textContent = `Session ended. Duration: ${data.duration} hours`;
-                
                 currentSession = null;
                 loadTodaySessions();
+                loadLastTimeLog(company);
             }
         });
     });
-    
+
     // Calculate total time
     calculateBtn.addEventListener('click', () => {
         loadTodaySessions();
     });
-    
-    // Initial load
-    loadTodaySessions();
+
+    // Update last log and session when company changes
+    companySelect.addEventListener('change', () => {
+        loadLastTimeLog(companySelect.value);
+        checkCurrentSession();
+    });
+
+    // Initial load: select first company if available and load data
+    if (companySelect.options.length > 1) {
+        companySelect.selectedIndex = 1; // Select first company
+        loadLastTimeLog(companySelect.value);
+        checkCurrentSession();
+    } else {
+        loadTodaySessions();
+    }
 });
 </script>
 </body>
