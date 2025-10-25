@@ -1,537 +1,373 @@
 <!doctype html>
 <html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Persian Work Tracker</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        body { padding: 20px; background: #f8f9fa; }
-        .card { margin-bottom: 20px; }
-        .progress { height: 20px; }
-        .alert-dismissible { position: fixed; top: 20px; right: 20px; z-index: 1000; }
-        .nav-tabs { margin-bottom: 20px; }
-        .chart-container {
-            position: relative;
-            height: 300px;
-            margin: 20px 0;
-        }
-    </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Work Tracker</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css" rel="stylesheet">
+  <style>
+    body { padding: 20px; background: #f8f9fa; }
+    .card { margin-bottom: 20px; }
+    .alert-dismissible { position: fixed; top: 20px; right: 20px; z-index: 1000; }
+    pre { white-space: pre-wrap; }
+  </style>
 </head>
 <body>
 <div class="container">
-    <h1 class="mb-4">Work Time Tracker (Persian Calendar)</h1>
+  <h1 class="mb-4">Work Tracker (Persian Calendar)</h1>
 
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% for category, message in messages %}
-        <div class="alert alert-{{ 'success' if category=='success' else 'danger' }} alert-dismissible fade show" role="alert">
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
-      {% endfor %}
-    {% endwith %}
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for category, message in messages %}
+      <div class="alert alert-{{ 'success' if category=='success' else 'danger' }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      </div>
+    {% endfor %}
+  {% endwith %}
 
-    <!-- Tabs -->
-    <ul class="nav nav-tabs">
-        <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#work-log">Work Log</a></li>
-        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#set-goal">Set Goal</a></li>
-        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#todo">To-Do List</a></li>
-        <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#day-time">Day Time</a></li>
-    </ul>
+  <!-- Two Tabs only: Track + Report -->
+  <ul class="nav nav-tabs">
+    <li class="nav-item"><a class="nav-link active" data-bs-toggle="tab" href="#track">Track</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="tab" href="#report">Report</a></li>
+  </ul>
 
-    <div class="tab-content">
-    <!-- Work-Log tab -->
-    <div class="tab-pane fade show active" id="work-log">
-        <div class="card mb-4"><div class="card-body">
-            <h2 class="card-title">Today</h2>
-            <p><strong>Date (Persian):</strong> {{ today_persian }}</p>
-            <p><strong>Time:</strong> <span id="current-time"></span></p>
-        </div></div>
+  <div class="tab-content">
+    <!-- TRACK TAB -->
+    <div class="tab-pane fade show active" id="track">
+      <div class="row">
+        <div class="col-lg-7">
+          <div class="card">
+            <div class="card-body">
+              <h2 class="card-title">Time Tracker</h2>
+              <p class="mb-1"><strong>Date (Persian):</strong> {{ today_persian }}</p>
+              <p class="mb-3"><strong>Time:</strong> <span id="current-time"></span></p>
 
-        <!-- Log hours form -->
-        <div class="card mb-4"><div class="card-body">
-            <h2>Log Work Hours</h2>
-            <form action="{{ url_for('log_work') }}" method="post">
-                <div class="mb-3">
-                    <label class="form-label">Company</label>
-                    <select class="form-select" name="company" required>
-                        <option value="" selected disabled>Select a company</option>
-                        {% for company in data.keys() %}
-                        <option value="{{ company }}">{{ company }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Hours</label>
-                    <input type="number" class="form-control" step="0.1" min="0.1" name="hours" required>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Description</label>
-                    <input type="text" class="form-control" name="description">
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Date (Persian)</label>
-                    <input type="text" class="form-control flatpickr" name="date" placeholder="Leave blank for today">
-                </div>
-                <button class="btn btn-primary">Log Hours</button>
-            </form>
-        </div></div>
-
-        <!-- Progress for each company -->
-        <h2 class="mt-4">Progress</h2>
-        {% for company, info in data.items() %}
-        <div class="card mb-3"><div class="card-body">
-            <h3>{{ company }}</h3>
-            <p>Goal: {{ info.goal|round(1) }} h</p>
-            <p>Total Logged: {{ info.total_hours }} h</p>
-            <p>Remaining: {{ info.remaining_hours|round(1) }} h</p>
-
-            {% if info.goal > 0 %}
-              <div class="progress mb-3">
-                  <div class="progress-bar bg-success"
-                       style="width: {{ info.progress if info.progress <= 100 else 100 }}%"
-                       aria-valuenow="{{ info.progress }}" aria-valuemin="0" aria-valuemax="100">
-                      {{ info.progress }}%
-                  </div>
+              <div class="mb-3">
+                <label class="form-label">Project</label>
+                <select id="project-select" class="form-select">
+                  <option value="">Select a project</option>
+                  {% for project_name in projects.keys() %}
+                    <option value="{{ project_name }}">{{ project_name }}</option>
+                  {% endfor %}
+                </select>
               </div>
-            {% else %}
-              <p><em>No goal set.</em></p>
-            {% endif %}
 
-            {% if info.recommended_hours %}
-              <p>Recommended: {{ info.recommended_hours }} h/day
-                 ({{ info.remaining_days }} work-days left{{ ' until ' ~ info.deadline if info.deadline else '' }})</p>
-              <p>Work schedule: {{ info.workdays_count }} days/week</p>
-            {% elif info.goal and info.remaining_days == 0 %}
-              <p><strong>Deadline passed — no workdays left.</strong></p>
-            {% endif %}
+              <div class="d-flex gap-3 mb-3">
+                <button id="start-btn" class="btn btn-primary">Start Work</button>
+                <button id="end-btn" class="btn btn-danger" disabled>Stop Work</button>
+              </div>
 
-            <!-- Work Time Chart -->
-            {% if info.log %}
-            <div class="chart-container">
-                <canvas id="chart-{{ loop.index }}"></canvas>
+              <div id="session-info" class="alert alert-info" style="display:none"></div>
+
+              <hr>
+
+              <h5>Last Time Log</h5>
+              <div id="last-log-info" class="alert alert-secondary" style="display:none">
+                Select a project to see the last time log
+              </div>
+
+              <h5 class="mt-4">Today's Work Sessions</h5>
+              <ul id="today-sessions" class="list-group mb-3"></ul>
+              <div id="today-total" class="alert alert-success" style="display:none"></div>
             </div>
-            {% endif %}
+          </div>
 
-            <!-- Logs -->
-            <h4>Logs</h4>
-            <ul class="list-group mb-3">
-                {% for date, entry in info.log.items() %}
-                  {% set hours = entry.hours if entry is mapping else entry %}
-                  <li class="list-group-item d-flex justify-content-between align-items-center">
-                      {{ date }}: {{ hours|round(1) }} h
-                      {% if entry.description %}&ndash; {{ entry.description }}{% endif %}
-                      <a class="btn btn-sm btn-danger"
-                         href="{{ url_for('delete_log', company=company, date=date) }}"
-                         onclick="return confirm('Delete this log?')">Delete</a>
-                  </li>
-                {% endfor %}
-            </ul>
-        </div></div>
-        {% endfor %}
-    </div>
-
-    <!-- Set Goal tab -->
-    <div class="tab-pane fade" id="set-goal">
-        <div class="card"><div class="card-body">
-            <h2 class="card-title">Set Work Goal</h2>
-            <form action="{{ url_for('set_goal') }}" method="post">
-                <div class="mb-3">
-                    <label class="form-label">Company</label>
-                    <input type="text" class="form-control" name="company" required>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Goal Hours</label>
-                    <input type="number" class="form-control" step="1" min="0" name="goal" required>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Workdays per Week (0-7)</label>
-                    <input type="number" class="form-control" name="workdays_count" min="0" max="7" value="5" required>
-                    <small class="text-muted">0 = no days, 7 = every day</small>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Deadline (Persian)</label>
-                    <input type="text" class="form-control flatpickr" name="deadline" placeholder="Leave blank = end of month">
-                </div>
-                <button class="btn btn-primary">Set Goal</button>
-            </form>
-
-            <h3 class="mt-4">Current Goals</h3>
-            {% for company, info in data.items() if info.goal %}
-            <div class="card mb-3">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                            <h4>{{ company }}</h4>
-                            <p><strong>Goal:</strong> {{ info.goal|round(1) }} hours</p>
-                            <p><strong>Work Schedule:</strong> {{ info.workdays_count }} days/week</p>
-                            {% if info.deadline %}
-                            <p><strong>Deadline:</strong> {{ info.deadline }}</p>
-                            {% endif %}
-                        </div>
-                        <a class="btn btn-danger btn-sm" 
-                           href="{{ url_for('delete_goal', company=company) }}"
-                           onclick="return confirm('Are you sure you want to delete the goal for {{ company }}? This will not delete logged hours.')">
-                            Delete Goal
-                        </a>
+          <div class="card">
+            <div class="card-body">
+              <h3>All Time Logs</h3>
+              <div id="time-logs" class="list-group">
+                {% set any_logs = false %}
+                {% for project_name, project in projects.items() %}
+                  {% if project.time_logs %}
+                    {% set any_logs = true %}
+                    <div class="list-group-item">
+                      <h5>{{ project_name }} <small>(Tags: {{ project.tags|join(', ') if project.tags else '—' }})</small></h5>
+                      <ul class="list-group">
+                        {% for log in project.time_logs %}
+                          <li class="list-group-item d-flex justify-content-between">
+                            <span>{{ log.date }}: {{ log.start_time }} - {{ log.end_time }} ({{ log.duration }} hours)</span>
+                            <a href="#" class="btn btn-sm btn-danger delete-time-log"
+                               data-project="{{ project_name }}"
+                               data-date="{{ log.date }}"
+                               data-start="{{ log.start_time }}">Delete</a>
+                          </li>
+                        {% endfor %}
+                      </ul>
                     </div>
-                </div>
-            </div>
-            {% else %}
-            <p>No goals set yet.</p>
-            {% endfor %}
-        </div></div>
-    </div>
-
-    <!-- To-Do tab -->
-    <div class="tab-pane fade" id="todo">
-        <div class="card"><div class="card-body">
-            <h2 class="card-title">To-Do List</h2>
-            <form action="{{ url_for('add_task') }}" method="post">
-                <div class="mb-3">
-                    <label class="form-label">Company</label>
-                    <select class="form-select" name="company" required>
-                        <option value="" selected disabled>Select a company</option>
-                        {% for company in data.keys() %}
-                        <option value="{{ company }}">{{ company }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Task Title</label>
-                    <input type="text" class="form-control" name="task_title" required>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Date (Persian)</label>
-                    <input type="text" class="form-control flatpickr" name="task_date" placeholder="Leave blank = today">
-                </div>
-                <button class="btn btn-primary">Add Task</button>
-            </form>
-
-            <h3 class="mt-4">Tasks</h3>
-            {% for company, info in data.items() if info.tasks %}
-              <h4>{{ company }}</h4>
-              <ul class="list-group mb-3">
-                {% for task in info.tasks %}
-                  <li class="list-group-item d-flex justify-content-between align-items-center">
-                      <form action="{{ url_for('update_task', company=company, task_id=task.id) }}"
-                            method="post" class="d-flex align-items-center">
-                          <input type="checkbox" name="completed" class="form-check-input me-2"
-                                 {% if task.completed %}checked{% endif %}
-                                 onchange="this.form.submit()">
-                          <span{% if task.completed %} style="text-decoration: line-through"{% endif %}>
-                              {{ task.date }} – {{ task.title }}
-                          </span>
-                      </form>
-                      <a class="btn btn-sm btn-danger"
-                         href="{{ url_for('delete_task', company=company, task_id=task.id) }}"
-                         onclick="return confirm('Delete this task?')">Delete</a>
-                  </li>
+                  {% endif %}
                 {% endfor %}
-              </ul>
-            {% endfor %}
-        </div></div>
-    </div>
+                {% if not any_logs %}
+                  <p class="mt-2">No time logs recorded yet.</p>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
 
-    <!-- Day Time tab -->
-    <div class="tab-pane fade" id="day-time">
-        <div class="card"><div class="card-body">
-            <h2 class="card-title">Work Time Tracker</h2>
-            
-            <div class="mb-4">
-                <h3>Current Session</h3>
-                <div class="d-flex gap-3 mb-3">
-                    <button id="start-btn" class="btn btn-primary">Start Work</button>
-                    <button id="end-btn" class="btn btn-danger" disabled>End Work</button>
-                    <button id="calculate-btn" class="btn btn-success" disabled>Calculate Total</button>
+        <div class="col-lg-5">
+          <div class="card">
+            <div class="card-body">
+              <h2 class="card-title">Projects</h2>
+
+              <!-- Add project -->
+              <form action="{{ url_for('add_project') }}" method="post" class="mb-4">
+                <div class="mb-3">
+                  <label class="form-label">Project Name</label>
+                  <input type="text" class="form-control" name="name" required>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label">Company</label>
-                    <select id="company-select" class="form-select">
-                        <option value="" selected disabled>Select a company</option>
-                        {% for company in data.keys() %}
-                        <option value="{{ company }}">{{ company }}</option>
-                        {% endfor %}
-                    </select>
+                  <label class="form-label">Tags (comma-separated)</label>
+                  <input type="text" class="form-control" name="tags" placeholder="e.g., MyCompany, Development">
                 </div>
-                <div id="session-info" class="alert alert-info" style="display:none"></div>
-            </div>
-            
-            <div class="mb-4">
-                <h3>Last Time Log</h3>
-                <div id="last-log-info" class="alert alert-info" style="display:none">Select a company to see the last time log</div>
-            </div>
-            
-            <div class="mb-4">
-                <h3>Today's Work Sessions</h3>
-                <ul id="today-sessions" class="list-group mb-3"></ul>
-                <div id="today-total" class="alert alert-success" style="display:none"></div>
-            </div>
-            
-            <div>
-                <h3>All Time Logs</h3>
-                <div id="time-logs" class="list-group">
-                    {% for company, info in data.items() if info.time_logs %}
-                        <div class="list-group-item">
-                            <h4>{{ company }}</h4>
-                            <ul class="list-group">
-                                {% for log in info.time_logs %}
-                                <li class="list-group-item d-flex justify-content-between">
-                                    <span>{{ log.date }}: {{ log.start_time }} - {{ log.end_time }} ({{ log.duration }} hours)</span>
-                                    <a href="#" class="btn btn-sm btn-danger delete-time-log" 
-                                       data-company="{{ company }}" 
-                                       data-date="{{ log.date }}" 
-                                       data-start="{{ log.start_time }}">Delete</a>
-                                </li>
-                                {% endfor %}
-                            </ul>
-                        </div>
-                    {% else %}
-                        <p>No time logs recorded yet.</p>
-                    {% endfor %}
+                <button class="btn btn-primary">Add Project</button>
+              </form>
+
+              <!-- List/manage projects -->
+              {% for project_name, project in projects.items() %}
+                <div class="border rounded p-3 mb-3 bg-white">
+                  <div class="d-flex justify-content-between">
+                    <div>
+                      <h5 class="mb-1">{{ project_name }}</h5>
+                      <div class="small text-muted">Tags: {{ project.tags|join(', ') if project.tags else '—' }}</div>
+                      {% if today_logs.get(project_name) %}
+                        <div class="mt-1"><strong>Today's Total:</strong> {{ today_logs[project_name]|sum(attribute='duration')|round(2) }} hours</div>
+                      {% endif %}
+                    </div>
+                    <div class="ms-3">
+                      <form action="{{ url_for('reset_project') }}" method="post" style="display:inline" onsubmit="return confirm('Reset all logs for this project?');">
+                        <input type="hidden" name="project" value="{{ project_name }}">
+                        <button type="submit" class="btn btn-warning btn-sm me-1">Reset Logs</button>
+                      </form>
+                      <a class="btn btn-danger btn-sm" href="{{ url_for('delete_project', project_name=project_name) }}" onclick="return confirm('Delete this project?')">Delete</a>
+                    </div>
+                  </div>
+                  <form action="{{ url_for('update_project') }}" method="post" class="mt-2">
+                    <input type="hidden" name="project" value="{{ project_name }}">
+                    <div class="input-group input-group-sm">
+                      <span class="input-group-text">Tags</span>
+                      <input type="text" class="form-control" name="tags" value="{{ project.tags|join(', ') if project.tags else '' }}" placeholder="comma,separated">
+                      <button class="btn btn-outline-primary">Save</button>
+                    </div>
+                  </form>
                 </div>
+              {% else %}
+                <p>No projects yet. Add one above.</p>
+              {% endfor %}
             </div>
-        </div></div>
+          </div>
+        </div>
+      </div><!-- /row -->
     </div>
-    </div><!-- /tab-content -->
+
+    <!-- REPORT TAB -->
+    <div class="tab-pane fade" id="report">
+      <div class="card">
+        <div class="card-body">
+          <h2 class="card-title">Report</h2>
+          <form method="get" action="{{ url_for('report') }}" class="mb-3">
+            <div class="row g-2">
+              <div class="col-md-3">
+                <label class="form-label">Project</label>
+                <select name="project" class="form-select">
+                  <option value="">All Projects</option>
+                  {% for project_name in projects.keys() %}
+                    <option value="{{ project_name }}">{{ project_name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Tag</label>
+                <input type="text" name="tag" class="form-control" placeholder="e.g., MyCompany">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Date From</label>
+                <input type="text" name="date_from" class="form-control flatpickr">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">Date To</label>
+                <input type="text" name="date_to" class="form-control flatpickr">
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary mt-2">Open Report</button>
+            <a href="{{ url_for('report') }}" class="btn btn-secondary mt-2">Open Empty Report</a>
+          </form>
+          <p class="text-muted mb-0">Report opens in a separate page where you can copy or download Markdown.</p>
+        </div>
+      </div>
+    </div>
+  </div><!-- /tab-content -->
 </div><!-- /container -->
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    flatpickr('.flatpickr', {dateFormat: 'Y-m-d', defaultDate: '{{ today_persian }}'});
-    function updateTime(){
-        const n = new Date();
-        document.getElementById('current-time').textContent =
-            n.toLocaleTimeString('fa-IR', {hour: '2-digit', minute: '2-digit', second: '2-digit'});
-    }
-    updateTime(); setInterval(updateTime, 1000);
+  flatpickr('.flatpickr', {dateFormat: 'Y-m-d', defaultDate: '{{ today_persian }}'});
 
-    // Initialize charts for each company
-    {% for company, info in data.items() %}
-    {% if info.log %}
-    (function() {
-        var ctx = document.getElementById('chart-{{ loop.index }}').getContext('2d');
-        var dates = [];
-        var hours = [];
-        var sortedLogs = Object.entries({{ info.log|tojson }}).sort((a, b) => a[0].localeCompare(b[0]));
-        sortedLogs.forEach(function(log) {
-            dates.push(log[0]);
-            hours.push(typeof log[1] === 'object' ? log[1].hours : log[1]);
-        });
-        new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: dates,
-                datasets: [{
-                    label: 'Work Hours',
-                    data: hours,
-                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: { beginAtZero: true, title: { display: true, text: 'Hours Worked' } },
-                    x: { title: { display: true, text: 'Date' } }
-                }
-            }
-        });
-    })();
-    {% endif %}
-    {% endfor %}
+  function updateTime(){
+    const n = new Date();
+    document.getElementById('current-time').textContent =
+      n.toLocaleTimeString('fa-IR', {hour: '2-digit', minute: '2-digit', second: '2-digit'});
+  }
+  updateTime(); setInterval(updateTime, 1000);
 
-    // Time Tracking Functionality
-    const startBtn = document.getElementById('start-btn');
-    const endBtn = document.getElementById('end-btn');
-    const calculateBtn = document.getElementById('calculate-btn');
-    const companySelect = document.getElementById('company-select');
-    const sessionInfo = document.getElementById('session-info');
-    const todaySessions = document.getElementById('today-sessions');
-    const todayTotal = document.getElementById('today-total');
-    const lastLogInfo = document.getElementById('last-log-info');
-    let currentSession = null;
+  // Time Tracking Functionality
+  const startBtn = document.getElementById('start-btn');
+  const endBtn = document.getElementById('end-btn');
+  const projectSelect = document.getElementById('project-select');
+  const sessionInfo = document.getElementById('session-info');
+  const todaySessions = document.getElementById('today-sessions');
+  const todayTotal = document.getElementById('today-total');
+  const lastLogInfo = document.getElementById('last-log-info');
+  let currentSession = null;
 
-    // Load today's sessions
-    function loadTodaySessions() {
-        fetch('/get_today_time_logs')
-            .then(res => res.json())
-            .then(data => {
-                todaySessions.innerHTML = '';
-                let totalHours = 0;
-                if (data.logs && Object.keys(data.logs).length > 0) {
-                    for (const [company, logs] of Object.entries(data.logs)) {
-                        logs.forEach(log => {
-                            const li = document.createElement('li');
-                            li.className = 'list-group-item';
-                            li.innerHTML = `
-                                <strong>${company}</strong>: ${log.start_time} - ${log.end_time} 
-                                (${log.duration} hours)
-                            `;
-                            todaySessions.appendChild(li);
-                            totalHours += parseFloat(log.duration);
-                        });
-                    }
-                    todayTotal.style.display = 'block';
-                    todayTotal.textContent = `Total today: ${totalHours.toFixed(2)} hours`;
-                } else {
-                    todaySessions.innerHTML = '<li class="list-group-item">No sessions today</li>';
-                    todayTotal.style.display = 'none';
-                }
+  function loadTodaySessions() {
+    fetch('/get_today_time_logs')
+      .then(res => res.json())
+      .then(data => {
+        todaySessions.innerHTML = '';
+        let totalHours = 0;
+        if (data.logs && Object.keys(data.logs).length > 0) {
+          for (const [project, logs] of Object.entries(data.logs)) {
+            logs.forEach(log => {
+              const li = document.createElement('li');
+              li.className = 'list-group-item';
+              li.innerHTML = `<strong>${project}</strong>: ${log.start_time} - ${log.end_time} (${log.duration} hours)`;
+              todaySessions.appendChild(li);
+              totalHours += parseFloat(log.duration);
             });
-    }
-
-    // Fetch and display the last time log for the selected company
-    function loadLastTimeLog(company) {
-        if (!company) {
-            lastLogInfo.style.display = 'none';
-            return;
+          }
+          todayTotal.style.display = 'block';
+          todayTotal.textContent = `Total today: ${totalHours.toFixed(2)} hours`;
+        } else {
+          todaySessions.innerHTML = '<li class="list-group-item">No sessions today</li>';
+          todayTotal.style.display = 'none';
         }
-        fetch(`/get_last_time_log?company=${encodeURIComponent(company)}`)
-            .then(res => res.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    lastLogInfo.style.display = 'block';
-                    lastLogInfo.textContent = `Last log for ${company}: ${data.last_log.date} ${data.last_log.start_time} - ${data.last_log.end_time} (${data.last_log.duration} hours)`;
-                } else {
-                    lastLogInfo.style.display = 'block';
-                    lastLogInfo.textContent = `No time logs for ${company}`;
-                }
-            });
-    }
+      });
+  }
 
-    // Check for active session on page load
-    function checkCurrentSession() {
-        const company = companySelect.value;
-        if (!company) return;
-        fetch(`/get_current_session?company=${encodeURIComponent(company)}`)
-            .then(res => res.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    currentSession = {
-                        company: company,
-                        startTime: new Date(data.current_session.start_time)
-                    };
-                    startBtn.disabled = true;
-                    endBtn.disabled = false;
-                    calculateBtn.disabled = false;
-                    companySelect.disabled = true;
-                    sessionInfo.style.display = 'block';
-                    sessionInfo.textContent = `Session started at ${currentSession.startTime.toLocaleTimeString()}`;
-                } else {
-                    currentSession = null;
-                    startBtn.disabled = false;
-                    endBtn.disabled = true;
-                    calculateBtn.disabled = true;
-                    companySelect.disabled = false;
-                    sessionInfo.style.display = 'none';
-                }
-            });
-    }
-
-    // Handle delete time log
-    document.querySelectorAll('.delete-time-log').forEach(btn => {
-        btn.addEventListener('click', function(e) {
-            e.preventDefault();
-            if (confirm('Delete this time log?')) {
-                const company = this.dataset.company;
-                const date = this.dataset.date;
-                const startTime = this.dataset.start;
-                fetch('/delete_time_log', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: `company=${encodeURIComponent(company)}&date=${encodeURIComponent(date)}&start_time=${encodeURIComponent(startTime)}`
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        this.closest('li').remove();
-                        loadTodaySessions();
-                        loadLastTimeLog(companySelect.value);
-                    }
-                });
-            }
-        });
-    });
-
-    // Start work session
-    startBtn.addEventListener('click', () => {
-        const company = companySelect.value;
-        if (!company) {
-            alert('Please select a company');
-            return;
+  function loadLastTimeLog(project) {
+    if (!project) { lastLogInfo.style.display = 'none'; return; }
+    fetch(`/get_last_time_log?project=${encodeURIComponent(project)}`)
+      .then(res => res.json())
+      .then(data => {
+        lastLogInfo.style.display = 'block';
+        if (data.status === 'success') {
+          lastLogInfo.textContent = `Last log for ${project}: ${data.last_log.date} ${data.last_log.start_time} - ${data.last_log.end_time} (${data.last_log.duration} hours)`;
+        } else {
+          lastLogInfo.textContent = `No time logs for ${project}`;
         }
-        fetch('/start_time_log', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: `company=${encodeURIComponent(company)}`
+      });
+  }
+
+  function checkCurrentSession() {
+    const project = projectSelect.value;
+    if (!project) return;
+    fetch(`/get_current_session?project=${encodeURIComponent(project)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === 'success') {
+          currentSession = { project, startTime: new Date(data.current_session.start_time) };
+          startBtn.disabled = true;
+          endBtn.disabled = true; // enable only after 2 seconds to avoid double-clicks
+          setTimeout(() => endBtn.disabled = false, 2000);
+          projectSelect.disabled = true;
+          sessionInfo.style.display = 'block';
+          sessionInfo.textContent = `Session started at ${currentSession.startTime.toLocaleTimeString()}`;
+        } else {
+          currentSession = null;
+          startBtn.disabled = false;
+          endBtn.disabled = true;
+          projectSelect.disabled = false;
+          sessionInfo.style.display = 'none';
+        }
+      });
+  }
+
+  // Delete time log
+  document.querySelectorAll('.delete-time-log').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      if (confirm('Delete this time log?')) {
+        const project = this.dataset.project;
+        const date = this.dataset.date;
+        const startTime = this.dataset.start;
+        fetch('/delete_time_log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `project=${encodeURIComponent(project)}&date=${encodeURIComponent(date)}&start_time=${encodeURIComponent(startTime)}`
         })
         .then(res => res.json())
         .then(data => {
-            if (data.status === 'success') {
-                currentSession = {
-                    company: company,
-                    startTime: new Date(data.start_time)
-                };
-                startBtn.disabled = true;
-                endBtn.disabled = false;
-                calculateBtn.disabled = false;
-                companySelect.disabled = true;
-                sessionInfo.style.display = 'block';
-                sessionInfo.textContent = `Session started at ${currentSession.startTime.toLocaleTimeString()}`;
-            }
+          if (data.status === 'success') {
+            this.closest('li').remove();
+            loadTodaySessions();
+            if (projectSelect.value === project) loadLastTimeLog(project);
+          }
         });
+      }
     });
+  });
 
-    // End work session
-    endBtn.addEventListener('click', () => {
-        const company = companySelect.value;
-        fetch('/end_time_log', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: `company=${encodeURIComponent(company)}`
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === 'success') {
-                startBtn.disabled = false;
-                endBtn.disabled = true;
-                calculateBtn.disabled = true;
-                companySelect.disabled = false;
-                sessionInfo.style.display = 'block';
-                sessionInfo.textContent = `Session ended. Duration: ${data.duration} hours`;
-                currentSession = null;
-                loadTodaySessions();
-                loadLastTimeLog(company);
-            }
-        });
+  // Start session
+  startBtn.addEventListener('click', () => {
+    const project = projectSelect.value;
+    if (!project) { alert('Please select a project'); return; }
+    fetch('/start_time_log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `project=${encodeURIComponent(project)}`
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.status === 'success') {
+        currentSession = { project, startTime: new Date(data.start_time) };
+        startBtn.disabled = true;
+        endBtn.disabled = false;
+        projectSelect.disabled = true;
+        sessionInfo.style.display = 'block';
+        sessionInfo.textContent = `Session started at ${currentSession.startTime.toLocaleTimeString()}`;
+      } else {
+        alert(data.message || 'Failed to start session');
+      }
     });
+  });
 
-    // Calculate total time
-    calculateBtn.addEventListener('click', () => {
+  // End session
+  endBtn.addEventListener('click', () => {
+    if (!currentSession) { alert('No active session'); return; }
+    const project = currentSession.project;
+    fetch('/end_time_log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `project=${encodeURIComponent(project)}`
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.status === 'success') {
+        startBtn.disabled = false;
+        endBtn.disabled = true;
+        projectSelect.disabled = false;
+        sessionInfo.style.display = 'block';
+        sessionInfo.textContent = `Session ended. Duration: ${data.duration} hours`;
+        currentSession = null;
         loadTodaySessions();
+        loadLastTimeLog(project);
+      } else {
+        alert(data.message || 'Failed to end session');
+      }
     });
+  });
 
-    // Update last log and session when company changes
-    companySelect.addEventListener('change', () => {
-        loadLastTimeLog(companySelect.value);
-        checkCurrentSession();
-    });
+  // When project changes
+  projectSelect.addEventListener('change', () => {
+    loadLastTimeLog(projectSelect.value);
+    checkCurrentSession();
+  });
 
-    // Initial load: select first company if available and load data
-    if (companySelect.options.length > 1) {
-        companySelect.selectedIndex = 1; // Select first company
-        loadLastTimeLog(companySelect.value);
-        checkCurrentSession();
-    } else {
-        loadTodaySessions();
-    }
+  // Initial data
+  loadTodaySessions();
 });
 </script>
 </body>
