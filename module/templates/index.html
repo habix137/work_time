@@ -37,6 +37,20 @@
     <div class="tab-pane fade show active" id="track">
       <div class="row">
         <div class="col-lg-7">
+          <!-- NEW: Overall All-time Totals Card (Main Page) -->
+          <div class="card">
+            <div class="card-body">
+              <h2 class="card-title">Totals (All Time)</h2>
+              <div class="alert alert-primary mb-0">
+                <strong>Overall Total (all projects):</strong>
+                <span id="overall-total">{{ overall_total|round(2) }}</span> hours
+              </div>
+              <div class="text-muted small mt-2">
+                This updates automatically after you stop a session or delete a log.
+              </div>
+            </div>
+          </div>
+
           <div class="card">
             <div class="card-body">
               <h2 class="card-title">Time Tracker</h2>
@@ -82,7 +96,20 @@
                   {% if project.time_logs %}
                     {% set any_logs = true %}
                     <div class="list-group-item">
-                      <h5>{{ project_name }} <small>(Tags: {{ project.tags|join(', ') if project.tags else '—' }})</small></h5>
+                      <h5>
+                        {{ project_name }}
+                        <small>(Tags: {{ project.tags|join(', ') if project.tags else '—' }})</small>
+                      </h5>
+
+                      <!-- NEW: Per-project all-time total next to logs -->
+                      <div class="small text-muted mb-2">
+                        <strong>All-time total:</strong>
+                        <span class="alltime-total" data-project="{{ project_name }}">
+                          {{ (project_totals.get(project_name, 0.0))|round(2) }}
+                        </span>
+                        hours
+                      </div>
+
                       <ul class="list-group">
                         {% for log in project.time_logs %}
                           <li class="list-group-item d-flex justify-content-between">
@@ -130,9 +157,22 @@
                     <div>
                       <h5 class="mb-1">{{ project_name }}</h5>
                       <div class="small text-muted">Tags: {{ project.tags|join(', ') if project.tags else '—' }}</div>
+
                       {% if today_logs.get(project_name) %}
-                        <div class="mt-1"><strong>Today's Total:</strong> {{ today_logs[project_name]|sum(attribute='duration')|round(2) }} hours</div>
+                        <div class="mt-1">
+                          <strong>Today's Total:</strong>
+                          {{ today_logs[project_name]|sum(attribute='duration')|round(2) }} hours
+                        </div>
                       {% endif %}
+
+                      <!-- NEW: Per-project all-time total (Main Page feature) -->
+                      <div class="mt-1">
+                        <strong>All-time Total:</strong>
+                        <span class="alltime-total" data-project="{{ project_name }}">
+                          {{ (project_totals.get(project_name, 0.0))|round(2) }}
+                        </span>
+                        hours
+                      </div>
                     </div>
                     <div class="ms-3">
                       <form action="{{ url_for('reset_project') }}" method="post" style="display:inline" onsubmit="return confirm('Reset all logs for this project?');">
@@ -222,6 +262,30 @@ document.addEventListener('DOMContentLoaded', () => {
   const lastLogInfo = document.getElementById('last-log-info');
   let currentSession = null;
 
+  // NEW: refresh all-time totals (overall + per-project)
+  function loadAllTimeTotals() {
+    fetch('/get_all_time_totals')
+      .then(res => res.json())
+      .then(data => {
+        if (data.status !== 'success') return;
+
+        // overall
+        const overallEl = document.getElementById('overall-total');
+        if (overallEl) overallEl.textContent = Number(data.overall_total || 0).toFixed(2);
+
+        // per-project (update all elements that match data-project)
+        if (data.per_project) {
+          document.querySelectorAll('.alltime-total').forEach(el => {
+            const p = el.getAttribute('data-project');
+            if (!p) return;
+            const val = (data.per_project[p] !== undefined) ? data.per_project[p] : 0;
+            el.textContent = Number(val).toFixed(2);
+          });
+        }
+      })
+      .catch(() => {});
+  }
+
   function loadTodaySessions() {
     fetch('/get_today_time_logs')
       .then(res => res.json())
@@ -303,6 +367,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (data.status === 'success') {
             this.closest('li').remove();
             loadTodaySessions();
+            loadAllTimeTotals(); // NEW
             if (projectSelect.value === project) loadLastTimeLog(project);
           }
         });
@@ -352,8 +417,10 @@ document.addEventListener('DOMContentLoaded', () => {
         sessionInfo.style.display = 'block';
         sessionInfo.textContent = `Session ended. Duration: ${data.duration} hours`;
         currentSession = null;
+
         loadTodaySessions();
         loadLastTimeLog(project);
+        loadAllTimeTotals(); // NEW
       } else {
         alert(data.message || 'Failed to end session');
       }
@@ -368,6 +435,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Initial data
   loadTodaySessions();
+  loadAllTimeTotals(); // NEW
 });
 </script>
 </body>

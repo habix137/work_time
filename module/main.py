@@ -20,13 +20,37 @@ DATA_FILE = os.path.join(os.path.dirname(BASE_DIR), 'work_data.json')
 # Utilities
 # ──────────────────────────────────────────────────────────────────────────────
 def load_data():
+    """
+    Backward-compatible loader:
+    - Always returns dict with { "projects": {...} }
+    - Ensures each project has keys: tags(list), time_logs(list)
+    - Does NOT break old data if fields are missing
+    """
+    data = {'projects': {}}
     if os.path.exists(DATA_FILE):
         with open(DATA_FILE, 'r', encoding='utf-8') as f:
             try:
-                return json.load(f)
+                loaded = json.load(f)
+                if isinstance(loaded, dict):
+                    data = loaded
             except json.JSONDecodeError:
                 pass
-    return {'projects': {}}
+
+    if 'projects' not in data or not isinstance(data.get('projects'), dict):
+        data['projects'] = {}
+
+    # Normalize projects structure
+    for pname, p in list(data['projects'].items()):
+        if not isinstance(p, dict):
+            data['projects'][pname] = {'tags': [], 'time_logs': []}
+            continue
+        if 'tags' not in p or not isinstance(p.get('tags'), list):
+            p['tags'] = []
+        if 'time_logs' not in p or not isinstance(p.get('time_logs'), list):
+            p['time_logs'] = []
+        # keep current_session if exists; no changes
+
+    return data
 
 def save_data(data):
     with open(DATA_FILE, 'w', encoding='utf-8') as f:
@@ -35,6 +59,35 @@ def save_data(data):
 def get_today_persian():
     """Return today’s date in YYYY-MM-DD (Persian calendar)."""
     return jdatetime.date.today().isoformat()
+
+def _safe_float(x, default=0.0):
+    try:
+        if x is None:
+            return default
+        return float(x)
+    except (ValueError, TypeError):
+        return default
+
+def compute_project_total_hours(project: dict) -> float:
+    """Sum durations across all time_logs for a project (completed sessions only)."""
+    total = 0.0
+    for log in project.get('time_logs', []) or []:
+        total += _safe_float(log.get('duration', 0.0), 0.0)
+    return total
+
+def compute_all_totals(projects: dict):
+    """
+    Returns:
+      per_project: { project_name: total_hours }
+      overall: float
+    """
+    per_project = {}
+    overall = 0.0
+    for name, proj in (projects or {}).items():
+        t = compute_project_total_hours(proj or {})
+        per_project[name] = round(t, 2)
+        overall += t
+    return per_project, round(overall, 2)
 
 def generate_markdown_report(projects, filters=None):
     """Generate a Markdown report for projects, with optional filters."""
@@ -64,11 +117,10 @@ def generate_markdown_report(projects, filters=None):
                 # Only include if the *project* has that tag
                 if filters['tag'] not in project.get('tags', []):
                     filtered_logs = []
-                # else keep filtered_logs as-is
             if filters.get('date_from'):
-                filtered_logs = [log for log in filtered_logs if log['date'] >= filters['date_from']]
+                filtered_logs = [log for log in filtered_logs if log.get('date', '') >= filters['date_from']]
             if filters.get('date_to'):
-                filtered_logs = [log for log in filtered_logs if log['date'] <= filters['date_to']]
+                filtered_logs = [log for log in filtered_logs if log.get('date', '') <= filters['date_to']]
 
         if not filtered_logs:
             continue
@@ -77,10 +129,11 @@ def generate_markdown_report(projects, filters=None):
         report += f"## {project_name}\n\n"
         report += f"**Tags:** {', '.join(project.get('tags', [])) or '—'}\n\n"
 
-        for log in sorted(filtered_logs, key=lambda x: (x['date'], x['start_time'])):
-            project_total += float(log['duration'])
-            total_overall_hours += float(log['duration'])
-            report += f"- **{log['date']}**: {log['start_time']} - {log['end_time']} ({round(log['duration'], 2)} hours)\n"
+        for log in sorted(filtered_logs, key=lambda x: (x.get('date', ''), x.get('start_time', ''))):
+            d = _safe_float(log.get('duration', 0.0), 0.0)
+            project_total += d
+            total_overall_hours += d
+            report += f"- **{log.get('date','—')}**: {log.get('start_time','—')} - {log.get('end_time','—')} ({round(d, 2)} hours)\n"
 
         report += f"\n**Project Total: {round(project_total, 2)} hours**\n\n"
 
@@ -95,14 +148,38 @@ def index():
     data = load_data()
     projects = data.get('projects', {})
     today = get_today_persian()
+
+    # Today's logs per project
     today_logs = {}
     for project_name, project in projects.items():
         logs = project.get('time_logs', [])
-        today_logs[project_name] = [log for log in logs if log['date'] == today]
-    return render_template('index.html',
-                           projects=projects,
-                           today_persian=today,
-                           today_logs=today_logs)
+        today_logs[project_name] = [log for log in logs if log.get('date') == today]
+
+    # NEW: all-time totals
+    project_totals, overall_total = compute_all_totals(projects)
+
+    return render_template(
+        'index.html',
+        projects=projects,
+        today_persian=today,
+        today_logs=today_logs,
+        project_totals=project_totals,
+        overall_total=overall_total
+    )
+
+# ───────────────────────────────
+# NEW: Totals endpoint (for live updates on main page)
+# ───────────────────────────────
+@app.route('/get_all_time_totals', methods=['GET'])
+def get_all_time_totals():
+    data = load_data()
+    projects = data.get('projects', {})
+    per_project, overall = compute_all_totals(projects)
+    return {
+        'status': 'success',
+        'overall_total': overall,
+        'per_project': per_project
+    }
 
 # ───────────────────────────────
 # Report
@@ -133,9 +210,11 @@ def download_report():
         filters['date_to'] = request.args.get('date_to') or None
 
     md_report = generate_markdown_report(projects, filters)
-    return Response(md_report,
-                    mimetype='text/markdown',
-                    headers={'Content-Disposition': 'attachment;filename=work_report.md'})
+    return Response(
+        md_report,
+        mimetype='text/markdown',
+        headers={'Content-Disposition': 'attachment;filename=work_report.md'}
+    )
 
 # ───────────────────────────────
 # Project CRUD
@@ -242,10 +321,14 @@ def end_time_log():
 
     start_dt = dt.fromisoformat(current_session['start_time'])
     end_dt = dt.fromisoformat(end_time_iso)
+
+    # duration in hours
     duration = round((end_dt - start_dt).total_seconds() / 3600, 2)
+    if duration < 0:
+        duration = 0.0
 
     time_log = {
-        'date': current_session['date'],
+        'date': current_session.get('date', get_today_persian()),
         'start_time': start_dt.strftime('%H:%M:%S'),
         'end_time': end_dt.strftime('%H:%M:%S'),
         'duration': duration
@@ -263,10 +346,10 @@ def get_today_time_logs():
     projects = data.get('projects', {})
     result = {}
     for project, info in projects.items():
-        if 'time_logs' in info:
-            today_logs = [log for log in info['time_logs'] if log['date'] == today]
-            if today_logs:
-                result[project] = today_logs
+        logs = info.get('time_logs', [])
+        today_logs = [log for log in logs if log.get('date') == today]
+        if today_logs:
+            result[project] = today_logs
     return {'status': 'success', 'logs': result}
 
 @app.route('/get_current_session', methods=['GET'])
@@ -284,7 +367,7 @@ def get_last_time_log():
     project = request.args.get('project', '').strip()
     projects = data.get('projects', {})
     if project in projects and projects[project].get('time_logs'):
-        last_log = max(projects[project]['time_logs'], key=lambda x: (x['date'], x['start_time']))
+        last_log = max(projects[project]['time_logs'], key=lambda x: (x.get('date', ''), x.get('start_time', '')))
         return {'status': 'success', 'last_log': last_log}
     return {'status': 'error', 'message': 'No time logs found'}, 404
 
@@ -300,7 +383,7 @@ def delete_time_log():
         before = len(projects[project]['time_logs'])
         projects[project]['time_logs'] = [
             log for log in projects[project]['time_logs']
-            if not (log['date'] == date and log['start_time'] == start_time)
+            if not (log.get('date') == date and log.get('start_time') == start_time)
         ]
         after = len(projects[project]['time_logs'])
         if after < before:
@@ -313,4 +396,4 @@ def delete_time_log():
 # ───────────────────────────────
 if __name__ == '__main__':
     # Run as: python module/main.py
-    app.run(debug=True)
+    app.run(host='0.0.0.0', debug=False)
