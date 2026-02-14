@@ -13,9 +13,11 @@
     <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">&larr; Back</a>
     <a href="{{ url_for('download_report', **filters) }}" class="btn btn-primary">Download Markdown</a>
   </div>
+
   <div class="mb-2">
     <button id="copy-btn" class="btn btn-secondary btn-sm">Copy to Clipboard</button>
   </div>
+
   <pre id="report-content" class="bg-light p-3 border">{{ report }}</pre>
 </div>
 

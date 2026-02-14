@@ -2,127 +2,41 @@
     "projects": {
         "bedehi": {
             "tags": [],
-            "time_logs": []
+            "time_logs": [],
+            "group": "AIP"
         },
         "yarn test": {
             "tags": [
                 "yarn"
             ],
-            "time_logs": []
+            "time_logs": [],
+            "group": "AIP"
         },
         "ceph performance": {
             "tags": [
                 "ceph"
             ],
-            "time_logs": []
+            "time_logs": [],
+            "group": "AIP"
         },
         "llm help": {
             "tags": [],
-            "time_logs": []
+            "time_logs": [],
+            "group": "AIP"
         },
         "ceph move endpoint bug fix": {
             "tags": [
                 "bug_fix"
             ],
-            "time_logs": [
-                {
-                    "date": "1404-10-18",
-                    "start_time": "13:34:21",
-                    "end_time": "14:54:31",
-                    "duration": 1.34
-                },
-                {
-                    "date": "1404-10-18",
-                    "start_time": "15:14:42",
-                    "end_time": "17:29:47",
-                    "duration": 2.25
-                },
-                {
-                    "date": "1404-10-30",
-                    "start_time": "15:09:55",
-                    "end_time": "16:17:45",
-                    "duration": 1.13
-                },
-                {
-                    "date": "1404-10-30",
-                    "start_time": "16:54:47",
-                    "end_time": "17:31:50",
-                    "duration": 0.62
-                },
-                {
-                    "date": "1404-11-04",
-                    "start_time": "10:40:29",
-                    "end_time": "11:56:22",
-                    "duration": 1.26
-                },
-                {
-                    "date": "1404-11-04",
-                    "start_time": "13:42:20",
-                    "end_time": "14:31:29",
-                    "duration": 0.82
-                },
-                {
-                    "date": "1404-11-04",
-                    "start_time": "14:59:16",
-                    "end_time": "15:01:17",
-                    "duration": 0.03
-                },
-                {
-                    "date": "1404-11-05",
-                    "start_time": "13:08:43",
-                    "end_time": "13:48:36",
-                    "duration": 0.66
-                },
-                {
-                    "date": "1404-11-05",
-                    "start_time": "14:03:48",
-                    "end_time": "16:57:27",
-                    "duration": 2.89
-                },
-                {
-                    "date": "1404-11-05",
-                    "start_time": "17:55:00",
-                    "end_time": "18:32:52",
-                    "duration": 0.63
-                },
-                {
-                    "date": "1404-11-06",
-                    "start_time": "09:35:40",
-                    "end_time": "12:24:48",
-                    "duration": 2.82
-                }
-            ]
+            "time_logs": [],
+            "group": "AIP"
         },
         "multi thread upload in cephfs": {
             "tags": [
                 "cephfs"
             ],
-            "time_logs": [
-                {
-                    "date": "1404-11-06",
-                    "start_time": "13:41:23",
-                    "end_time": "15:51:35",
-                    "duration": 2.17
-                },
-                {
-                    "date": "1404-11-07",
-                    "start_time": "10:22:01",
-                    "end_time": "10:23:09",
-                    "duration": 0.02
-                },
-                {
-                    "date": "1404-11-07",
-                    "start_time": "10:30:25",
-                    "end_time": "11:22:10",
-                    "duration": 0.86
-                },
-                {
-                    "date": "1404-11-07",
-                    "start_time": "11:33:39",
-                    "end_time": "12:36:34",
-                    "duration": 1.05
-                }
-            ]
+            "time_logs": [],
+            "group": "AIP"
         },
         "sensorserver": {
             "tags": [
@@ -152,35 +66,62 @@
                     "start_time": "13:20:21",
                     "end_time": "17:59:11",
                     "duration": 4.65
+                },
+                {
+                    "date": "1404-11-18",
+                    "start_time": "09:18:29",
+                    "end_time": "12:25:34",
+                    "duration": 3.12
+                },
+                {
+                    "date": "1404-11-19",
+                    "start_time": "09:39:00",
+                    "end_time": "12:32:46",
+                    "duration": 2.9
                 }
             ],
             "current_session": {
-                "start_time": "2026-02-04T09:50:03",
-                "date": "1404-11-15"
-            }
+                "start_time": "2026-02-08T13:37:28",
+                "date": "1404-11-19"
+            },
+            "group": "mobtaker"
         },
         "cluster deployment in hpc new cluster": {
             "tags": [
                 "Aip"
             ],
-            "time_logs": [
-                {
-                    "date": "1404-11-16",
-                    "start_time": "09:48:09",
-                    "end_time": "10:36:51",
-                    "duration": 0.81
-                }
-            ]
+            "time_logs": [],
+            "group": "AIP"
         },
         "H-base": {
             "tags": [
                 "AIP"
             ],
             "time_logs": [],
-            "current_session": {
-                "start_time": "2026-02-05T10:36:53",
-                "date": "1404-11-16"
-            }
+            "group": "AIP"
+        },
+        "thesis": {
+            "tags": [],
+            "time_logs": [
+                {
+                    "date": "1404-11-20",
+                    "start_time": "09:40:21",
+                    "end_time": "14:06:33",
+                    "duration": 4.44
+                }
+            ],
+            "group": "university"
+        },
+        "apache iceberg": {
+            "tags": [],
+            "time_logs": [],
+            "group": "AIP"
         }
-    }
+    },
+    "groups": [
+        "Ungrouped",
+        "AIP",
+        "mobtaker",
+        "university"
+    ]
 }
