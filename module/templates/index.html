@@ -113,18 +113,19 @@
               <h3>All Time Logs</h3>
 
               <div id="time-logs">
-                {% set any_logs = false %}
+                {% set ns = namespace(any_logs=false) %}
 
                 {% for g, items in grouped_projects.items() %}
-                  {% set group_has_logs = false %}
+                  {% set gns = namespace(has_logs=false) %}
 
+                  {# detect if this group has any logs #}
                   {% for project_name, project in items %}
-                    {% if project.time_logs %}
-                      {% set group_has_logs = true %}
+                    {% if project.get('time_logs') and (project.get('time_logs')|length > 0) %}
+                      {% set gns.has_logs = true %}
                     {% endif %}
                   {% endfor %}
 
-                  {% if group_has_logs %}
+                  {% if gns.has_logs %}
                     <div class="mb-3 p-2 border rounded bg-white">
                       <div class="d-flex justify-content-between align-items-center">
                         <h4 class="mb-0">Group: {{ g }}</h4>
@@ -136,12 +137,12 @@
                     </div>
 
                     {% for project_name, project in items %}
-                      {% if project.time_logs %}
-                        {% set any_logs = true %}
+                      {% if project.get('time_logs') and (project.get('time_logs')|length > 0) %}
+                        {% set ns.any_logs = true %}
                         <div class="list-group-item mb-3 border rounded bg-white p-3">
                           <h5 class="mb-1">
                             {{ project_name }}
-                            <small class="text-muted">(Tags: {{ project.tags|join(', ') if project.tags else '—' }})</small>
+                            <small class="text-muted">(Tags: {{ project.get('tags', [])|join(', ') if project.get('tags') else '—' }})</small>
                           </h5>
 
                           <div class="small text-muted mb-2">
@@ -153,14 +154,14 @@
                           </div>
 
                           <ul class="list-group">
-                            {% for log in project.time_logs %}
+                            {% for log in project.get('time_logs', []) %}
                               <li class="list-group-item d-flex justify-content-between align-items-center">
                                 <span>{{ log.date }}: {{ log.start_time }} - {{ log.end_time }} ({{ log.duration }} hours)</span>
                                 <a href="#"
-                                   class="btn btn-sm btn-danger delete-time-log"
-                                   data-project="{{ project_name }}"
-                                   data-date="{{ log.date }}"
-                                   data-start="{{ log.start_time }}">Delete</a>
+                                  class="btn btn-sm btn-danger delete-time-log"
+                                  data-project="{{ project_name }}"
+                                  data-date="{{ log.date }}"
+                                  data-start="{{ log.start_time }}">Delete</a>
                               </li>
                             {% endfor %}
                           </ul>
@@ -170,10 +171,11 @@
                   {% endif %}
                 {% endfor %}
 
-                {% if not any_logs %}
+                {% if not ns.any_logs %}
                   <p class="mt-2">No time logs recorded yet.</p>
                 {% endif %}
               </div>
+
             </div>
           </div>
         </div>
